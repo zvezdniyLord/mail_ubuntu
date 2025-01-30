@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Переписка писем</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Переписка писем</h1>
+
+        <div class="form-container">
+            <h2>Создать новую переписку</h2>
+            <form id="new-email-form">
+                <label for="subject">Тема:</label>
+                <input type="text" id="subject" name="subject" required>
+
+                <label for="body">Текст письма:</label>
+                <textarea id="body" name="body" rows="4" required></textarea>
+
+                <label for="from_email">Ваш email:</label>
+                <input type="email" id="from_email" name="from_email" required>
+
+                <button type="submit">Отправить</button>
+            </form>
+        </div>
+
+        <div class="form-container" id="reply-form-container" style="display: none;">
+            <h2>Ответить на письмо</h2>
+            <form id="reply-form">
+                <input type="hidden" id="reply_thread_id" name="thread_id">
+                <label for="reply_subject">Тема:</label>
+                <input type="text" id="reply_subject" name="subject" required>
+
+                <label for="reply_body">Текст письма:</label>
+                <textarea id="reply_body" name="body" rows="4" required></textarea>
+
+                <label for="reply_from_email">Ваш email:</label>
+                <input type="email" id="reply_from_email" name="from_email" required>
+
+                <button type="submit">Отправить ответ</button>
+            </form>
+        </div>
+
+        <div class="thread-container">
+            <h2>Переписка</h2>
+            <ul id="thread-list"></ul>
+        </div>
+
+        <div class="email-details">
+            <h2>Детали письма</h2>
+            <div id="email-content"></div>
+            <button id="reply-button" style="display: none;">Ответить</button>
+            <button id="close-thread-button" style="display: none;">Закрыть заявку</button>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+    const newEmailForm = document.getElementById('new-email-form');
+    const replyForm = document.getElementById('reply-form');
+    const replyFormContainer = document.getElementById('reply-form-container');
+    const replyButton = document.getElementById('reply-button');
+    const threadList = document.getElementById('thread-list');
+    const emailContent = document.getElementById('email-content');
+    const closeThreadButton = document.getElementById('close-thread-button');
+    let currentThreadId = 'thread_1736995910602_3rz907new';
+
+    newEmailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const subject = document.getElementById('subject').value;
+        const body = document.getElementById('body').value;
+        const from_email = document.getElementById('from_email').value;
+
+        try {
+            const response = await fetch('http://localhost:3001/send-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ subject, body, from_email }),
+            });
+
+            if (response.ok) {
+                alert('Письмо отправлено!');
+                newEmailForm.reset();
+                fetchThread(currentThreadId);
+            } else {
+                alert('Ошибка при отправке письма');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+        }
+    });
+
+    replyForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const thread_id = document.getElementById('reply_thread_id').value;
+        const subject = document.getElementById('reply_subject').value;
+        const body = document.getElementById('reply_body').value;
+        const from_email = document.getElementById('reply_from_email').value;
+
+        try {
+            const response = await fetch('http://localhost:3001/send-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ subject, body, from_email, thread_id }),
+            });
+
+            if (response.ok) {
+                alert('Ответ отправлен!');
+                replyForm.reset();
+                replyFormContainer.style.display = 'none';
+                fetchThread(thread_id);
+            } else {
+                alert('Ошибка при отправке ответа');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+        }
+    });
+
+    replyButton.addEventListener('click', () => {
+        replyFormContainer.style.display = 'block';
+        document.getElementById('reply_thread_id').value = currentThreadId;
+        document.getElementById('reply_subject').value = `Re: ${currentSubject}`;
+    });
+
+    async function fetchThread(thread_id) {
+        try {
+            const response = await fetch(`http://localhost:3001/thread/${thread_id}`);
+            const data = await response.json();
+
+            threadList.innerHTML = '';
+            data.data.forEach(email => {
+                const li = document.createElement('li');
+                li.textContent = `${email.subject} (от ${email.from_email})`;
+                li.addEventListener('click', () => showEmailDetails(email));
+                threadList.appendChild(li);
+            });
+        } catch (error) {
+            console.error('Ошибка при загрузке переписки:', error);
+        }
+    }
+fetchThread('thread_1737423675497_uzx0r1fsy');
+    let currentSubject = '';
+    function showEmailDetails(email) {
+        emailContent.innerHTML = `
+            <p><strong>Тема:</strong> ${email.subject}</p>
+            <p><strong>От:</strong> ${email.from_email}</p>
+            <p><strong>Текст:</strong> <h1>${email.body}</h1></p>
+            <p><strong>Дата:</strong> ${new Date(email.created_at).toLocaleString()}</p>
+        `;
+
+        // Сохраняем thread_id и тему для ответа
+        currentThreadId = email.thread_id;
+
+        // Показываем кнопку "Ответить" только для входящих писем
+        if (!email.is_outgoing) {
+            replyButton.style.display = 'block';
+        } else {
+            replyButton.style.display = 'none';
+        }
+
+        // Показываем кнопку "Закрыть заявку" только для активных переписок
+        if (!email.is_closed) {
+            closeThreadButton.style.display = 'block';
+        } else {
+            closeThreadButton.style.display = 'none';
+        }
+    }
+
+    closeThreadButton.addEventListener('click', async () => {
+        if (confirm('Вы уверены, что хотите закрыть заявку?')) {
+            try {
+                const response = await fetch('http://localhost:3001/close-thread', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ thread_id: currentThreadId }),
+                });
+
+                if (response.ok) {
+                    alert('Заявка закрыта!');
+                    closeThreadButton.style.display = 'none';
+                    fetchThread(currentThreadId); // Обновляем список писем
+                } else {
+                    alert('Ошибка при закрытии заявки');
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+            }
+        }
+    });
+
+    async function getAllPosts() {
+        const body = document.querySelector("body");
+        const response = await fetch('http://localhost:3001/posts');
+        const data = await response.json();
+
+        const container = document.createElement('div');
+
+        data.forEach(email => {
+            const div = document.createElement('div');
+            div.textContent = email.body;
+            container.appendChild(div);
+        });
+
+        body.appendChild(container);
+    }
+
+
+});
+    </script>
+</body>
+</html>
