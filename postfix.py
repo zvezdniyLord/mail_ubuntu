@@ -24,18 +24,20 @@ body=$(echo "$email" | sed -n '/^$/,$p' | tail -n +2)
 
 curl -X POST http://localhost:3001/receive-email \\
      -H "Content-Type: application/json" \\
-     -d "{
-    \\"subject\\": \\"Re: test [thread_1737423675497_uzx0r1fsy]\\",
-    \\"body\\": \\"шлем входящее\\",
-    \\"from_email\\": \\"support@example.com\\"
-}"
+     -d "{\\"subject\\": \\"Re: test [thread_1737423675497_uzx0r1fsy]\\", \\"body\\": \\"$body\\", \\"from_email\\": \\"$from_email\\"}"
 """
 }
 
-def run_command(command):
+def run_command(command, input_data=None):
     """Выполняет команду в терминале."""
     try:
-        subprocess.run(command, shell=True, check=True)
+        subprocess.run(
+            command,
+            shell=True,
+            check=True,
+            input=input_data,
+            text=True
+        )
     except subprocess.CalledProcessError as e:
         print(f"Ошибка при выполнении команды: {e}")
         exit(1)
@@ -45,7 +47,8 @@ def install_postfix():
     print("Проверка наличия Postfix...")
     if not os.path.exists("/etc/postfix/main.cf"):
         print("Postfix не найден. Установка Postfix...")
-        run_command("sudo apt-get update && sudo apt-get install -y postfix")
+        # Отключаем интерактивный режим установки
+        run_command("sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y postfix")
     else:
         print("Postfix уже установлен.")
 

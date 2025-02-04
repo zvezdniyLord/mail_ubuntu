@@ -37,7 +37,7 @@ HEADERS = {"Content-Type": "application/json"}
 
 try:
     response = requests.post(API_URL, json=email_data, headers=HEADERS)
-    response.raise_for_status() 
+    response.raise_for_status()
 except Exception as e:
     sys.stderr.write(f"API Error: {str(e)}\n")
     sys.exit(1)
