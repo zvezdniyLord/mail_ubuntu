@@ -10,23 +10,24 @@ class my_custom_api extends rcube_plugin
 
     public function handle_message_before_send($args)
     {
-        // Получаем объект письма
+        // Получаем объект письма (это экземпляр Mail_mime)
         $message = $args['message'];
 
-        // Извлекаем заголовки
-        $subject = $message->get_header('subject');
-        $from = $message->get_header('from');
+        // Получаем заголовки письма
+        $headers = $message->headers(); // Возвращает массив заголовков
 
-        // Извлекаем тело письма
-        $text_body = $message->get_text_body();
-        $html_body = $message->get_html_body();
+        // Извлекаем нужные заголовки
+        $subject = $headers['Subject'] ?? 'No Subject';
+        $from = $headers['From'] ?? 'Unknown Sender';
+
+        // Получаем тело письма
+        $body = $message->get(); // Получаем всё тело письма (включая текстовую и HTML-части)
 
         // Формируем данные для API
         $api_data = [
             'subject' => $subject,
             'from' => $from,
-            'text_body' => $text_body,
-            'html_body' => $html_body,
+            'body' => $body,
         ];
 
         // Отправляем данные на API
