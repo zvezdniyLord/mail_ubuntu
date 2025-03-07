@@ -5,29 +5,35 @@ class my_custom_api extends rcube_plugin
 
     public function init()
     {
-        // Регистрируем хук для перехвата отправки письма
+        error_log("[PLUGIN] INIT CALLED"); // Метка: init() вызван
         $this->add_hook('message_before_send', [$this, 'handle_message_before_send']);
     }
 
     public function handle_message_before_send($args)
     {
-        // Получаем объект письма
-        $message = $args['message'];
+        error_log("[PLUGIN] HOOK message_before_send TRIGGERED"); // Метка: хук сработал
 
-        // Извлекаем данные
+        $message = $args['message'];
+        if (empty($message)) {
+            error_log("[PLUGIN] ERROR: Message object is empty");
+            return $args;
+        }
+
+        error_log("[PLUGIN] Extracting headers...");
         $headers = $message->getHeaders();
         $subject = $headers['subject'] ?? 'No Subject';
-        $from_email = $headers['from'] ?? 'Unknown Sender';
+        $from = $headers['from'] ?? 'Unknown Sender';
         $body = $message->getBody() ?? 'No Body';
 
-        // Формируем данные для API
+        error_log("[PLUGIN] Data extracted - Subject: $subject, From: $from");
+
         $api_data = [
             'subject' => $subject,
-            'from_email' => $from_email,
+            'from' => $from,
             'body' => $body,
         ];
 
-        // Отправляем данные на API
+        error_log("[PLUGIN] Sending data to API...");
         $this->send_to_api($api_data);
 
         return $args;
@@ -35,23 +41,23 @@ class my_custom_api extends rcube_plugin
 
     private function send_to_api($data)
     {
-        $api_url = 'http://devsanya.ru/api/receive-email';
+        error_log("[PLUGIN] API URL: " . 'http://devsanya.ru/api/receive-email');
 
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $api_url);
+        curl_setopt($ch, CURLOPT_URL, "http://devsanya.ru/api/receive-email");
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-        ]);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
 
         $response = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
         if ($http_code != 200) {
-            rcube::write_log('errors', "API request failed. HTTP Code: $http_code, Response: $response");
+            error_log("[PLUGIN] API ERROR - HTTP Code: $http_code, Response: $response");
+        } else {
+            error_log("[PLUGIN] API SUCCESS - HTTP Code: $http_code");
         }
     }
 }
