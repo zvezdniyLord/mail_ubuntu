@@ -1,36 +1,39 @@
-<?php
 class my_custom_api extends rcube_plugin
 {
     public $task = 'mail';
 
     public function init()
     {
+        // Логируем вызов init()
+        file_put_contents('/tmp/plugin_debug.log', "[PLUGIN] INIT CALLED\n", FILE_APPEND);
+
         $this->add_hook('message_before_send', [$this, 'handle_message_before_send']);
     }
 
     public function handle_message_before_send($args)
     {
-        // Получаем объект письма (это экземпляр Mail_mime)
+        // Логируем вызов хука
+        file_put_contents('/tmp/plugin_debug.log', "[PLUGIN] HOOK message_before_send TRIGGERED\n", FILE_APPEND);
+
         $message = $args['message'];
+        if (empty($message)) {
+            file_put_contents('/tmp/plugin_debug.log', "[PLUGIN] ERROR: Message object is empty\n", FILE_APPEND);
+            return $args;
+        }
 
-        // Получаем заголовки письма
-        $headers = $message->headers(); // Возвращает массив заголовков
+        $headers = $message->getHeaders();
+        $subject = $headers['subject'] ?? 'No Subject';
+        $from = $headers['from'] ?? 'Unknown Sender';
+        $body = $message->getBody() ?? 'No Body';
 
-        // Извлекаем нужные заголовки
-        $subject = $headers['Subject'] ?? 'No Subject';
-        $from = $headers['From'] ?? 'Unknown Sender';
+        file_put_contents('/tmp/plugin_debug.log', "[PLUGIN] Data extracted - Subject: $subject, From: $from\n", FILE_APPEND);
 
-        // Получаем тело письма
-        $body = $message->get(); // Получаем всё тело письма (включая текстовую и HTML-части)
-
-        // Формируем данные для API
         $api_data = [
             'subject' => $subject,
             'from' => $from,
             'body' => $body,
         ];
 
-        // Отправляем данные на API
         $this->send_to_api($api_data);
 
         return $args;
@@ -38,23 +41,23 @@ class my_custom_api extends rcube_plugin
 
     private function send_to_api($data)
     {
-        $api_url = rcmail::get_instance()->config->get('my_custom_api_url');
+        file_put_contents('/tmp/plugin_debug.log', "[PLUGIN] Sending data to API...\n", FILE_APPEND);
 
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $api_url);
+        curl_setopt($ch, CURLOPT_URL, "http://devsanya.ru/api/receive-email");
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-        ]);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
 
         $response = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
         if ($http_code != 200) {
-            rcube::write_log('errors', "API request failed. HTTP Code: $http_code Response: $response");
+            file_put_contents('/tmp/plugin_debug.log', "[PLUGIN] API ERROR - HTTP Code: $http_code, Response: $response\n", FILE_APPEND);
+        } else {
+            file_put_contents('/tmp/plugin_debug.log', "[PLUGIN] API SUCCESS - HTTP Code: $http_code\n", FILE_APPEND);
         }
     }
 }
